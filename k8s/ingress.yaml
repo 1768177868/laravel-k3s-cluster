@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: laravel-ingress
+  annotations:
+    # Traefik 专用注解（根据需求配置）
+    traefik.ingress.kubernetes.io/router.entrypoints: web  # Traefik 的 HTTP 入口点（默认是 web）
+    # traefik.ingress.kubernetes.io/router.middlewares: https-redirect@kubernetescrd # 可选：添加中间件（如 HTTPS 重定向）
+    # 以下可选（根据 Traefik 版本和需求调整）
+    # traefik.ingress.kubernetes.io/router.path: /
+    # traefik.ingress.kubernetes.io/router.path.strategy: Prefix
+spec:
+  rules:
+    - host: api.xuancheng888.top  # 替换为你的域名（如 laravel.example.com）
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: laravel-service  # 关联上面的 Service 名称
+                port:
+                  number: 80           # 指向 Service 的 80 端口

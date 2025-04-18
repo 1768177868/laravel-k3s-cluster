@@ -1,0 +1,25 @@
+apiVersion: batch/v1  # 修正拼写错误，使用正确的 API 版本
+kind: CronJob
+metadata:
+  name: laravel-schedule  # CronJob 名称（需唯一）
+  namespace: laravel      # 与你的应用命名空间一致
+spec:
+  schedule: "*/1 * * * *"  # 每分钟执行一次（Cron 表达式正确）
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          imagePullSecrets:
+            - name: acr-secret  # 镜像拉取密钥（需提前创建）
+          containers:
+            - name: laravel-schedule
+              image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app:1.0.25
+              command: ["php", "artisan", "schedule:run"]  # Laravel 定时任务命令
+              envFrom:
+                - configMapRef:
+                    name: laravel-env  # 引用环境变量 ConfigMap（需提前创建）
+          restartPolicy: Never  # 任务完成后不重启容器
+      backoffLimit: 4  # 失败重试次数（可选，默认 6 次）
+  # 可选：如需设置时区（如北京时间），添加以下配置
+  # concurrencyPolicy: Forbid  # 禁止并发执行（根据需求选择 Allow/Forbid/Replace）
+  # timezone: Asia/Shanghai      # 时区设置（需集群支持）
