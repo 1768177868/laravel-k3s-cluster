@@ -312,4 +312,49 @@ kubectl logs <Pod名称> -n laravel --previous
 
 # 强制删除 Pod
 kubectl delete pod <Pod名称> -n laravel --force --grace-period=0
+
+```
+
+### 修改 k3s.service 通过调整 k3s 的配置，允许 NodePort 使用低端口（如 80/443）
+```bash
+sudo vi /etc/systemd/system/k3s.service
+#找到 ExecStart 行，添加 --service-node-port-range=1-32767 参数：
+ExecStart=/usr/local/bin/k3s \
+    server \
+        '--write-kubeconfig-mode' \
+        '644' \
+        '--tls-san' \
+        '43.167.238.150' \
+        '--advertise-address' \
+        '43.167.238.150' \
+        '--service-node-port-range' \
+        '1-32767'
+
+# 重启k3s
+sudo systemctl daemon-reload
+sudo systemctl restart k3s
+
+kubectl get svc traefik -n kube-system
+```
+
+### 查看修改 traefik
+```
+kubectl get pods,svc -n kube-system | grep traefik
+kubectl edit svc traefik -n kube-system
+```
+```yaml
+spec:
+  type: NodePort  # 将 LoadBalancer 改为 NodePort
+  ports:
+    - name: web
+      nodePort: 80  # 将 31191 改为 80
+      port: 80
+      protocol: TCP
+      targetPort: web
+    - name: websecure
+      nodePort: 443  # 将 32457 改为 443
+      port: 443
+      protocol: TCP
+      targetPort: websecure
+
 ```
