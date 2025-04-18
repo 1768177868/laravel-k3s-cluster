@@ -20,6 +20,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: laravel-service  # 关联上面的 Service 名称
+                name: laravel-app  # 关联上面的 Service 名称
                 port:
                   number: 80           # 指向 Service 的 80 端口
