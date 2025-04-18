@@ -73,7 +73,7 @@ systemctl restart k3s-agent
 ```
 
 
-2. Docker 环境配置
+### Docker 环境配置
 ```bash
 # 安装 Docker
 sudo apt-get update && sudo apt-get install -y docker.io
