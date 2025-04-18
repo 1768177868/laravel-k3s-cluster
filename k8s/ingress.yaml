@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: laravel-ingress
+  name: laravel-app
   annotations:
     # Traefik 专用注解（根据需求配置）
     traefik.ingress.kubernetes.io/router.entrypoints: web  # Traefik 的 HTTP 入口点（默认是 web）
@@ -9,6 +9,8 @@ metadata:
     # 以下可选（根据 Traefik 版本和需求调整）
     # traefik.ingress.kubernetes.io/router.path: /
     # traefik.ingress.kubernetes.io/router.path.strategy: Prefix
+  labels:
+    k8s.kuboard.cn/name: laravel-app
 spec:
   rules:
     - host: api.xuancheng888.top  # 替换为你的域名（如 laravel.example.com）

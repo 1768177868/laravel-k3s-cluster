@@ -1,9 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: laravel-service
+  name: laravel-app
+  labels:
+    k8s.kuboard.cn/name: laravel-app
 spec:
-  type: NodePort  # 关键修改
+  type: ClusterIP  # 可选：ClusterIP, NodePort, LoadBalancer
   # 可选（云环境使用）：
   # type: LoadBalancer  # 自动创建负载均衡器，需云服务商支持（如阿里云 SLB）
   # loadBalancerIP: 47.90.xx.xx  # 云服务商自动分配的公网 IP
