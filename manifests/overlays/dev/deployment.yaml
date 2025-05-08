@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-app
+  namespace: laravel-dev
+  labels:
+    app.kubernetes.io/name: laravel-app
+    environment: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: laravel-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: laravel-app
+    spec:
+      # 初始化容器
+      initContainers:
+      - name: migrate-db
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+        imagePullPolicy: Always  # 新增：始终拉取最新镜像
+        command:
+          - sh
+          - -c
+          - |
+            php artisan cache:clear && php artisan config:clear && php artisan migrate --force
+        envFrom:
+        - configMapRef:
+            name: laravel-env-dev
+        - secretRef:
+            name: laravel-secret-dev
+        volumeMounts:
+        - name: storage-framework-cache
+          mountPath: /var/www/html/storage/framework/cache
+        - name: storage-framework-views
+          mountPath: /var/www/html/storage/framework/views
+        - name: storage-app-private
+          mountPath: /var/www/html/storage/app/private
+        - name: storage-app-public
+          mountPath: /var/www/html/storage/app/public
+        - name: storage-logs
+          mountPath: /var/www/html/storage/logs
+
+      - name: seed-db
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+        imagePullPolicy: Always  # 新增：始终拉取最新镜像
+        command:
+          - sh
+          - -c
+          - |
+            php artisan db:seed --force
+        envFrom:
+        - configMapRef:
+            name: laravel-env-dev
+        - secretRef:
+            name: laravel-secret-dev
+        volumeMounts:
+        - name: storage-framework-cache
+          mountPath: /var/www/html/storage/framework/cache
+        - name: storage-framework-views
+          mountPath: /var/www/html/storage/framework/views
+        - name: storage-app-private
+          mountPath: /var/www/html/storage/app/private
+        - name: storage-app-public
+          mountPath: /var/www/html/storage/app/public
+        - name: storage-logs
+          mountPath: /var/www/html/storage/logs
+
+      imagePullSecrets:
+      - name: secret-acr
+      containers:
+      - name: laravel
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+        imagePullPolicy: Always  # 新增：始终拉取最新镜像
+        ports:
+        - containerPort: 80
+          name: nginx-http
+        envFrom:
+        - configMapRef:
+            name: laravel-env
+        - secretRef:
+            name: laravel-secret-dev
+        volumeMounts:
+        - name: storage-framework-cache
+          mountPath: /var/www/html/storage/framework/cache
+        - name: storage-framework-views
+          mountPath: /var/www/html/storage/framework/views
+        - name: storage-app-private
+          mountPath: /var/www/html/storage/app/private
+        - name: storage-app-public
+          mountPath: /var/www/html/storage/app/public
+        - name: storage-logs
+          mountPath: /var/www/html/storage/logs
+
+      volumes:
+      - name: storage-framework-cache
+        emptyDir: {}
+      - name: storage-framework-views
+        emptyDir: {}
+      - name: storage-app-private
+        emptyDir: {}
+      - name: storage-app-public
+        emptyDir: {}
+      - name: storage-logs
+        emptyDir: {}

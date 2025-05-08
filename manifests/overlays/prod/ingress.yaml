@@ -1,0 +1,11 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: laravel-app
+  namespace: laravel-prod
+  labels:
+    app.kubernetes.io/name: laravel-app
+    environment: prod
+spec:
+  rules:
+    - host: laravel.xuancheng888.top  # 替换为你的域名（如 laravel.example.com）

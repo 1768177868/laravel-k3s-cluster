@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: laravel-env-staging
+  namespace: laravel-staging
+  labels:
+    app.kubernetes.io/name: laravel-app
+    app.kubernetes.io/part-of: config
+    environment: staging
+data:
+  # 开发环境非敏感配置（覆盖/新增）
+  APP_DEBUG: "true"       # 开发环境关闭调试（覆盖基础层默认值）
+  APP_ENV: staging          # 环境类型（明确声明）
+  APP_URL: http://43.167.238.150  # 应用 URL（环境专属）
+  DB_CONNECTION: mysql     # 数据库连接类型
+  DB_DATABASE: laravel     # 数据库名（非敏感，若所有环境相同可放基础层）
+  DB_PORT: "3306"          # 数据库端口（非敏感）
+  QUEUE_CONNECTION: redis  # 队列连接类型（非敏感）
+  CACHE_DRIVER: file       # 缓存驱动（非敏感）
+  LOG_CHANNEL: stack       # 日志通道（非敏感）
+  REDIS_PORT: '6379'       # Redis 端口

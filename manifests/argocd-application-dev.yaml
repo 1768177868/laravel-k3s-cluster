@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: laravel-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://gitee.com/wangxuancheng/laravel-k3s-cluster.git
+    path: manifests/overlays/dev/
+    targetRevision: main
+    kustomize: 
+      commonAnnotations:
+        argocd.argoproj.io/sync-wave: "1"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: laravel-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

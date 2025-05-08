@@ -1,0 +1,22 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: laravel-app
+  namespace: laravel-prod
+  labels:
+    app.kubernetes.io/name: laravel-app
+    environment: prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: laravel-app
+  minReplicas: 1                        # 生产环境最小副本数
+  maxReplicas: 3                        # 生产环境最大副本数
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70         # 当 CPU 利用率达到 70% 时，自动增加副本数

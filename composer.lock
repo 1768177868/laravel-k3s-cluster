@@ -512,7 +512,7 @@
         },
         {
             "name": "fruitcake/php-cors",
-            "version": "v1.3.0",
+            "version": "1.0.25",
             "source": {
                 "type": "git",
                 "url": "https://github.com/fruitcake/php-cors.git",
@@ -567,7 +567,7 @@
             ],
             "support": {
                 "issues": "https://github.com/fruitcake/php-cors/issues",
-                "source": "https://github.com/fruitcake/php-cors/tree/v1.3.0"
+                "source": "https://github.com/fruitcake/php-cors/tree/1.0.25"
             },
             "funding": [
                 {

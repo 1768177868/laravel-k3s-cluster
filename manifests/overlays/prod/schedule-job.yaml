@@ -2,7 +2,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: laravel-schedule
-  namespace: laravel
+  namespace: laravel-prod
+  labels:
+    app.kubernetes.io/name: laravel-app
+    environment: prod
 spec:
   template:
     spec:
@@ -10,10 +13,12 @@ spec:
       - name: acr-secret
       containers:
       - name: laravel-schedule
-        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app:1.0.25
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
         command: ["php", "artisan", "schedule:run"]
         envFrom:
         - configMapRef:
-            name: laravel-env
+            name: laravel-env-prod
+        - secretRef:
+            name: laravel-secret-prod
       restartPolicy: Never
   backoffLimit: 4

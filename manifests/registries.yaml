@@ -1,0 +1,23 @@
+mirrors:
+  docker.io:
+    endpoint:
+      - "https://docker.m.daocloud.io"
+      - "https://hub-mirror.c.163.com"
+      - "https://registry.docker-cn.com"
+  quay.io:
+    endpoint:
+      - "https://quay.mirrors.ustc.edu.cn"    # 中科大镜像替代:cite[1]
+  registry.k8s.io:                            # 替换弃用的 k8s.gcr.io
+    endpoint:
+      - "https://registry.cn-hangzhou.aliyuncs.com/google_containers"  # 阿里云镜像路径
+    rewrite:
+      "^/(.*)": "/google_containers/$1"       # 路径重写规则，确保镜像层级正确
+  gcr.io:
+    endpoint:
+      - "https://gcr.m.daocloud.io"           # DaoCloud 镜像代理
+  k8s.gcr.io:                                 # 已弃用，仅保留兼容性配置
+    endpoint:
+      - "https://registry.cn-hangzhou.aliyuncs.com/google_containers"
+  ghcr.io:
+    endpoint:
+      - "https://ghcr.nju.edu.cn"             # 南京大学镜像站:cite[1]

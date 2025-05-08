@@ -11,9 +11,10 @@ metadata:
     # traefik.ingress.kubernetes.io/router.path.strategy: Prefix
   labels:
     k8s.kuboard.cn/name: laravel-app
+    app.kubernetes.io/role: ingress
 spec:
   rules:
-    - host: api.xuancheng888.top  # 替换为你的域名（如 laravel.example.com）
+    - host: dev.xuancheng888.top  # 替换为你的域名（如 laravel.example.com）
       http:
         paths:
           - path: /

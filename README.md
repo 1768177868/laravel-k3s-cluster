@@ -2,14 +2,6 @@
 
 ## 🌟 项目概述
 基于轻量级 Kubernetes 发行版 K3s 的 Laravel 生产级部署方案，包含以下核心能力：
-
-✨ **主要特性**  
-- 全自动 CI/CD 流水线（镜像构建 → 安全扫描 → 集群部署）  
-- 多环境配置管理（开发/测试/预发/生产）  
-- 零宕机滚动更新策略  
-- 弹性伸缩配置（HPA 支持）  
-- 分布式追踪（Jaeger 集成）  
-- 生产级监控告警（Prometheus + Grafana）  
   
 ## 📂 项目克隆
 ```bash
@@ -24,32 +16,42 @@ sudo swapoff -a
 sudo apt update
 sudo apt upgrade -y
 
+# helm 安装
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+
 # 设置主机名
 hostnamectl set-hostname k8s-master
 echo "k8s-master" | sudo tee /etc/hostname
+# 配置hosts 增加 k8s-master
+vim /etc/hosts
+127.0.0.1       localhos k8s-master
 
-# 使用国内镜像源安装
-curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - \
-  --write-kubeconfig-mode 644 \
-  --tls-san <你的服务器IP> \
-  --advertise-address <你的服务器IP>
 
-# 配置环境变量
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> ~/.bashrc
+# 安装
+# curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - \
+curl -sfL https://get.k3s.io | sh -s - \
+    --node-external-ip="43.167.238.150" \
+    --flannel-backend=wireguard-native \
+    --flannel-external-ip
+
+# 配置config
 mkdir -p ~/.kube
 sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
 sudo chown $(id -u):$(id -g) ~/.kube/config
 
 # 查看 NODE_TOKEN
 cat /var/lib/rancher/k3s/server/node-token
-# 查看节点
-sudo k3s kubectl get nodes
+
 # 重启服务
 systemctl daemon-reload
 systemctl restart k3s
+
 # 卸载
 /usr/local/bin/k3s-uninstall.sh
+
+# /etc/systemd/system/k3s.service
 ```
 
 ### 2. Worker 节点配置
@@ -62,16 +64,42 @@ sudo apt upgrade -y
 # 设置主机名
 hostnamectl set-hostname k8s-node1
 echo "k8s-node1" | sudo tee /etc/hostname
-# 使用国内镜像源安装
-curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn K3S_URL=https://<MASTER_IP>:6443 K3S_TOKEN=<NODE_TOKEN> sh -
-# 查看k3s服务状态
+# 配置hosts 增加 k8s-node1
+vim /etc/hosts
+127.0.0.1       localhos k8s-node1
+
+
+# 安装
+# curl -Ls https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn \
+curl -sfL https://get.k3s.io | \
+    K3S_URL=https://43.167.238.150:6443 \
+    K3S_TOKEN=<token> sh -s - \
+    --node-external-ip=43.134.106.179
+
+# 查看k3s服务状态  
 systemctl status k3s-agent
+
 # 重启k3s服务
+systemctl daemon-reload
 systemctl restart k3s-agent
+
 # 卸载
 /usr/local/bin/k3s-agent-uninstall.sh
+
+# /etc/systemd/system/k3s-agent.service
 ```
 
+```bash
+# K3s 客户端和服务器证书自颁发日起 365 天内有效。每次启动 K3s 时，已过期或 90 天内过期的证书都会自动更新。
+# 停止 K3s
+systemctl stop k3s
+
+# 轮换证书
+k3s certificate rotate
+
+# 启动 K3s
+systemctl start k3s
+```
 
 ### Docker 环境配置
 ```bash
@@ -79,11 +107,14 @@ systemctl restart k3s-agent
 sudo apt-get update && sudo apt-get install -y docker.io
 sudo systemctl enable --now docker
 
+# docker-compose up -d
+apt install docker-compose
+
 # 配置阿里云镜像加速（登录后访问 https://cr.console.aliyun.com 获取专属加速器地址）
 sudo mkdir -p /etc/docker
 sudo tee /etc/docker/daemon.json <<-'EOF'
 {
-  "registry-mirrors": ["https://<your-mirror>.mirror.aliyuncs.com"]
+  "registry-mirrors": ["https://mirror.ccs.tencentyun.com"]
 }
 EOF
 
@@ -104,48 +135,51 @@ docker push registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app:<版本号>
 ## ☸️ K3s 部署
 ### 项目结构
 ```
-├─ Dockerfile
-├─ k8s/
-│  ├─ namespace.yaml       # 命名空间配置
-│  ├─ deployment.yaml      # 应用部署配置
-│  ├─ service.yaml         # 服务暴露配置
-│  ├─ ingress.yaml         # 流量入口配置
-│  ├─ middleware.yaml      # 中间件配置
-│  ├─ configmap.yaml       # 环境变量配置
-│  ├─ cron-job.yaml        # 定时任务
-│  ├─ job.yaml             # 单次任务
-│  ├─ nginx.conf           # Nginx 配置
-│  ├─ supervisord.conf     # 进程管理
-│  ├─ acr-secret.yaml      # 镜像仓库认证
-│  ├─ app-key-secret.yaml  # laravel .env APP_KEY
-│  ├─ argo.yaml            # ArgoCD 配置
-│  └─ migration-job.yaml   # 数据迁移任务
+manifests/
+├── base/                          # 基础层（必含文件）
+│   ├── kustomization.yaml          # Kustomize 基础配置（核心，必须存在）
+│   ├── namespace.yaml              # 命名空间定义（环境无关，如 `laravel`）
+│   ├── deployment-template.yaml    # Deployment 基础模板（无环境参数）
+│   ├── service.yaml                # 服务定义（ClusterIP）
+│   ├── configmap-template.yaml     # ConfigMap 基础模板（公共环境变量）
+│   ├── migration-job-template.yaml # 迁移 Job 基础模板（通用命令）
+│   ├── secret-acr.yaml             # 镜像仓库 Secret
+├── overlays/                            # 环境层（按环境拆分）
+│   ├── dev/                        # 开发环境
+│   │   ├── kustomization.yaml      # 开发环境 Kustomize 配置（必须）
+│   │   ├── deployment.yaml         # Deployment 覆盖（副本数、资源）
+│   │   ├── configmap.yaml          # ConfigMap 覆盖（开发环境变量）
+│   │   ├── ingress.yaml            # 开发环境入口规则（如 dev.laravel.com）
+│   │   └── secret-env.yaml         # Larvel 环境变量（dev）
+│   └── prod/                       # 生产环境
+│       ├── kustomization.yaml      # 生产环境 Kustomize 配置（必须）
+│       ├── deployment.yaml         # Deployment 覆盖（生产参数）
+│       ├── configmap.yaml          # ConfigMap 覆盖（生产环境变量）
+│   │   └── secret-env.yaml         # Larvel 环境变量（prod）
+│       ├── hpa.yaml                # 自动扩缩容配置
+│       └── ingress.yaml            # 生产环境入口规则（如 laravel.com）
+├── argo.yaml                       # ArgoCD 自身部署配置
+├── argocd-application.yaml         # ArgoCD Application 配置（指向 overlays 目录）
+└── README.md                       # 使用说明文档
 ```
 ### 部署流程
 ```bash
-# 初始化命名空间
-kubectl apply -f k8s/namespace.yaml
 
-# 按顺序部署资源（依赖顺序：密钥 -> 配置 -> 应用）
-# 1. 必须先部署密钥（Secret）
-# 2. 部署配置映射（ConfigMap）
-# 3. 最后部署应用（Deployment）
-kubectl apply -f k8s/acr-secret.yaml -n laravel
-kubectl apply -f k8s/app-key-secret.yaml -n laravel
-kubectl apply -f k8s/configmap.yaml -n laravel
-kubectl apply -f k8s/deployment.yaml -n laravel
-
-# 验证部署
-kubectl get all -n laravel
-kubectl get ingress -n laravel
+# 安装kustomize 部署项目
+wget https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.6.0/kustomize_v5.6.0_linux_amd64.tar.gz
+tar -xvf kustomize_v5.6.0_linux_amd64.tar.gz && mv kustomize /usr/local/bin/
 ```
+### 查看部署文档
+[manifests/README.md](./manifests/README.md)
+
+
 ## 🔄 数据迁移
 ### 自动迁移（初始化容器）
 ```bash
-# k8s/deployment.yaml 参考
+# deployment.yaml 参考
 initContainers:
   - name: migrate-db
-    image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app:1.0.25
+    image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
     command: ["php", "artisan", "migrate", "--force"]
     envFrom:
     - configMapRef:
@@ -154,7 +188,7 @@ initContainers:
 ### 手动迁移
 ```bash
 # 通过 Job 执行
-kubectl apply -f k8s/migration-job.yaml
+kubectl apply -f manifests/base/migrate-job.yaml
 
 # 查看迁移日志
 kubectl logs <迁移任务Pod名称> -n laravel
@@ -178,6 +212,9 @@ kubectl get secret -n laravel
 # 查看资源使用情况
 kubectl top pod -n laravel
 kubectl top node
+kubectl top pod --all-namespaces | sort -k4 -nr
+kubectl get node -owide
+kubectl get pods -A
 ```
 
 ## ⚙️ 附加配置
@@ -213,6 +250,28 @@ systemctl daemon-reload
 systemctl restart k3s
 
 # 配置后会在/var/lib/rancher/k3s/agent/etc/containerd下创建目录 certs.d 存放containerd mirror配置文件
+
+
+# 方法2
+# node节点创建目录
+sudo mkdir -p /etc/rancher/k3s
+# 创建 containerd 配置文件
+sudo tee /etc/rancher/k3s/containerd-config.yaml <<EOF
+[plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+    endpoint = ["https://<你的阿里云加速器地址>.mirror.aliyuncs.com"]
+EOF
+
+#ctr -n k8s.io image pull registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.6
+#ctr -n k8s.io image tag registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.6 k8s.gcr.io/pause:3.6
+# cat /var/lib/rancher/k3s/agent/etc/containerd/config.toml
+
+# 查看 K3s 服务日志
+journalctl -u k3s -f  # Master 节点
+journalctl -u k3s-agent -f  # Node 节点
+
+# kubectl run test-pod --image=nginx:latest
+
 ```
 ### 2. 网络端口说明
 ```plaintext
@@ -227,28 +286,35 @@ TCP    6443       所有节点  所有节点   仅嵌入式分布式注册表（
 ### 3. 可视化工具
 #### 安装Kuboard（访问地址 http://<服务器IP>:30080，初始账号 admin/密码 Kuboard123）
 ```bash
-# 安装后可在仪表盘查看资源使用情况、日志流和YAML编辑
+# 安装后可在仪表盘查看资源使用情况、日志流和YAML编辑, nfs-client-provisioner 
+# kube-system/workload/view/Deployment/eip-nfs-nfs原镜像替换 registry.cn-hangzhou.aliyuncs.com/xuancheng/nfs-subdir-external-provisioner:v4.0.2
 docker run -d \
   --restart=unless-stopped \
   --name=kuboard \
   -p 30080:80/tcp \
-  -p 10081:10081/tcp \
-  -e KUBOARD_ENDPOINT="http://<IP>:30080" \
+  -p 30081:10081/udp \
+  -p 30081:10081/tcp \
+  -e KUBOARD_ENDPOINT="http://43.167.238.150:30080" \
+  -e KUBOARD_AGENT_SERVER_UDP_PORT="30081" \
+  -e KUBOARD_AGENT_SERVER_TCP_PORT="30081" \
   -v /root/kuboard-data:/data \
-  eipwork/kuboard:v3
+  registry.cn-hangzhou.aliyuncs.com/xuancheng/kuboard:v3
 ```
-#### 安装 ArgoCD 
-```
-kubectl create namespace argocd
-kubectl create secret generic argocd-redis --from-literal=auth=<设置redis密码> -n argocd
-kubectl apply -n argocd -f argo.yaml
-kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
-kubectl get svc -n argocd -l app.kubernetes.io/name=argocd-server |grep argocd-server
 
-# 查看密码，账号admin  IP:NodePort端口访问
-kubectl -n argocd get secret \
-argocd-initial-admin-secret \
--o jsonpath="{.data.password}" | base64 -d
+
+#### 安装 kubesphere （访问地址 http://<服务器IP>:30880，初始账号 admin/密码 P@88w0rd）
+```bash
+# wget https://github.com/kubesphere/ks-installer/releases/download/v3.4.1/kubesphere-installer.yaml
+# kubectl apply -f kubesphere-installer.yaml
+# kubectl get pods -n kubesphere-system
+
+helm upgrade --install -n kubesphere-system --create-namespace ks-core https://charts.kubesphere.io/main/ks-core-1.1.4.tgz --set global.imageRegistry=swr.cn-southwest-2.myhuaweicloud.com/ks  --set extension.imageRegistry=swr.cn-southwest-2.myhuaweicloud.com/ks --debug --wait
+
+# 卸载
+helm -n kubesphere-system uninstall ks-core
+# 卸载组件
+helm -n kubesphere-monitoring-system uninstall whizard-monitoring whizard-monitoring-agent
+
 ```
 
 ## 🗄️ 数据库配置
@@ -279,6 +345,9 @@ CREATE USER 'laravel'@'%' IDENTIFIED BY 'laravel123';
 # 授予所有数据库权限（根据需求调整权限范围）
 GRANT ALL PRIVILEGES ON *.* TO 'laravel'@'%' WITH GRANT OPTION;
 
+# 仅授予 laravel 用户对 laravel 数据库的所有权限（所有表）
+# GRANT ALL PRIVILEGES ON laravel.* TO 'laravel'@'%';
+
 # 刷新权限
 FLUSH PRIVILEGES;
 
@@ -290,6 +359,7 @@ EXIT;
 # 创建配置目录（若不存在）
 mkdir -p /myredis/conf
 mkdir -p /myredis/data
+touch /myredis/conf/redis.conf
 chmod -R 644 /myredis/conf/redis.conf
 
 # 生成标准 Redis 配置
@@ -317,7 +387,7 @@ kubectl delete pod <Pod名称> -n laravel --force --grace-period=0
 
 ### 修改 k3s.service 通过调整 k3s 的配置，允许 NodePort 使用低端口（如 80/443）
 ```bash
-sudo vi /etc/systemd/system/k3s.service
+sudo vim /etc/systemd/system/k3s.service
 #找到 ExecStart 行，添加 --service-node-port-range=1-32767 参数：
 ExecStart=/usr/local/bin/k3s \
     server \
@@ -342,19 +412,125 @@ kubectl get svc traefik -n kube-system
 kubectl get pods,svc -n kube-system | grep traefik
 kubectl edit svc traefik -n kube-system
 ```
-```yaml
-spec:
-  type: NodePort  # 将 LoadBalancer 改为 NodePort
-  ports:
-    - name: web
-      nodePort: 80  # 将 31191 改为 80
-      port: 80
-      protocol: TCP
-      targetPort: web
-    - name: websecure
-      nodePort: 443  # 将 32457 改为 443
-      port: 443
-      protocol: TCP
-      targetPort: websecure
+
+
+### crictl 常用命令
+```bash
+crictl pull <镜像名称>
+crictl images
+crictl pods
+crictl ps -a
+crictl inspect <容器 ID>
+crictl start <容器 ID>
+crictl stop <容器 ID>
+crictl rm <容器 ID>
+crictl logs <容器 ID>
+crictl inspectp <Pod ID>
+crictl inspecti <镜像 ID 或镜像名称>
+crictl netns
+crictl --help
+```
+
+### NFS
+```bash
+> NFS 服务器端配置（IP: 43.167.238.150）
+```bash
+# 更新系统并安装 NFS 服务器
+sudo apt update && sudo apt install nfs-kernel-server -y
+
+# 创建共享目录
+sudo mkdir -p /data/nfs_public
+
+# 设置目录权限（建议普通权限，避免不安全的 777）
+sudo chown nobody:nogroup /data/nfs_public
+sudo chmod 755 /data/nfs_public
+
+# 编辑 NFS 共享配置（允许指定客户端 IP 访问）
+sudo vim /etc/exports
+# 添加以下内容（删除冗余的 fsid=0，确保 IP 与客户端一致）
+/data/nfs_public 43.134.106.179(rw,sync,no_subtree_check)
+/data/nfs_public 47.115.140.28(rw,sync,no_subtree_check)
+
+# 重启 NFS 服务并重新导出共享
+sudo systemctl restart nfs-kernel-server
+sudo exportfs -arv
+
+# 验证配置（确保输出包含允许的客户端 IP）
+showmount -e
+```
+
+> NFS 客户端配置（IP: 43.134.106.179 和 47.115.140.28）
+```bash
+# 安装 NFS 客户端工具
+sudo apt install nfs-common -y
+
+# 创建挂载点
+sudo mkdir -p /mnt/nfs_public
+
+# 临时挂载（使用默认 NFS 协议，兼容 v3/v4）
+sudo mount 43.167.238.150:/data/nfs_public /mnt/nfs_public
+
+# 验证临时挂载（查看是否有共享目录内容）
+ls /mnt/nfs_public
+
+# 配置永久挂载（编辑 fstab，删除冗余的 nfs4 类型，使用默认协议）
+sudo vim /etc/fstab
+# 添加以下内容
+43.167.238.150:/data/nfs_public /mnt/nfs_public  nfs  defaults,timeo=15,retrans=3 0 0
+
+# 应用永久挂载配置
+sudo mount -a
+
+# 验证永久挂载（重启后生效，可用 df -h 检查）
+df -h | grep nfs
+
+
+# 卸载临时挂载
+sudo umount /mnt/nfs_public
+
+# 卸载永久挂载（先注释 /etc/fstab 中相关配置，再执行卸载）
+sudo vim /etc/fstab  # 注释掉 43.167.238.150:/data/nfs_public /mnt/nfs_public  nfs  defaults,timeo=15,retrans=3 0 0 这一行
+sudo umount /mnt/nfs_public
 
 ```
+
+### 错误处理
+
+```bash
+# kuboard日志套件 StatefulSet/alertmanager-main
+create Pod alertmanager-main-0 in StatefulSet alertmanager-main failed error: pods "alertmanager-main-0" is forbidden: error looking up service account kuboard/alertmanager-main: serviceaccount "alertmanager-main" not found
+
+
+# 解决方法：
+kubectl create serviceaccount alertmanager-main -n kuboard
+
+# alertmanager-rbac.yaml 可选
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alertmanager-main
+  namespace: kuboard
+rules:
+- apiGroups: [""]
+  resources: ["secrets", "configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alertmanager-main
+  namespace: kuboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: alertmanager-main
+subjects:
+- kind: ServiceAccount
+  name: alertmanager-main
+  namespace: kuboard
+
+
+# kubectl apply -f alertmanager-rbac.yaml
+```
+

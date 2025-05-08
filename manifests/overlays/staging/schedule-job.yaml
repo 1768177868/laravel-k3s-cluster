@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: laravel-schedule
+  namespace: laravel-staging
+  labels:
+    app.kubernetes.io/name: laravel-app
+    environment: staging
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+      - name: acr-secret
+      containers:
+      - name: laravel-schedule
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+        command: ["php", "artisan", "schedule:run"]
+        envFrom:
+        - configMapRef:
+            name: laravel-env-staging
+        - secretRef:
+            name: laravel-secret-staging
+      restartPolicy: Never
+  backoffLimit: 4

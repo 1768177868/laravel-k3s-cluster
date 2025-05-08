@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: laravel-schedule
+  namespace: laravel-prod
+  labels:
+    app.kubernetes.io/name: laravel-app
+    environment: prod
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+      - name: acr-secret
+      containers:
+      - name: laravel-migrate
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+        command: ["php", "artisan", "migrate"]
+        envFrom:
+        - configMapRef:
+            name: laravel-env-prod
+        - secretRef:
+            name: laravel-secret-prod
+      - name: laravel-seed
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+        command: ["php", "artisan", "db:seed"]
+        envFrom:
+        - configMapRef:
+            name: laravel-env-prod
+        - secretRef:
+            name: laravel-secret-prod
+      restartPolicy: Never
+  backoffLimit: 4

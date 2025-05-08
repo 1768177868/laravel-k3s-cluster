@@ -1,0 +1,11 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: laravel-app
+  namespace: laravel-staging
+  labels:
+    app.kubernetes.io/name: laravel-app
+    environment: staging
+spec:
+  rules:
+    - host: api.xuancheng888.top  # 替换为你的域名（如 laravel.example.com）

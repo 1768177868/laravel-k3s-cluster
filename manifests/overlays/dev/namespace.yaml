@@ -1,0 +1,4 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: laravel-dev  # 覆盖基础层的命名空间

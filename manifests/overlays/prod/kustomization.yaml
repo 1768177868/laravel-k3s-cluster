@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 镜像版本覆盖（环境标签）
+images:
+  - name: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+    newTag: master-7
+
+namespace: laravel-prod  # 添加全局命名空间定义
+
+# 新增资源列表（确保 ../../base 是合法的 Kustomization 模块，且当前目录存在 namespace.yaml、secret-env.yaml）
+resources:
+# - ../../base  # 引用基础模块（需包含 base/kustomization.yaml）
+# - namespace.yaml  # 当前目录下的命名空间定义文件
+# - secret-env.yaml  # 当前目录下的 Secret 配置文件
+# - configmap.yaml
+- deployment.yaml
+- cron-job.yaml
+# - migrate-job.yaml
+# - ingress.yaml
+
+# 环境专属标签
+commonLabels:
+  environment: prod                # 环境标签
+  app.kubernetes.io/instance: laravel-prod

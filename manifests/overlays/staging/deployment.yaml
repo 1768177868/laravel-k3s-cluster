@@ -2,32 +2,34 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: laravel-app
-  namespace: laravel
+  namespace: laravel-staging
+  labels:
+    app.kubernetes.io/name: laravel-app
+    environment: staging
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: laravel
+      app.kubernetes.io/name: laravel-app
   template:
     metadata:
       labels:
-        app: laravel
+        app.kubernetes.io/name: laravel-app
     spec:
+      # 初始化容器
       initContainers:
       - name: migrate-db
-        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app:1.0.25
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
         command:
           - sh
           - -c
           - |
-            php artisan cache:clear
-            php artisan config:clear
-            php artisan migrate --force || exit 0
+            php artisan cache:clear && php artisan config:clear && php artisan migrate --force
         envFrom:
         - configMapRef:
-            name: laravel-env
+            name: laravel-env-staging
         - secretRef:
-            name: laravel-app-key
+            name: laravel-secret-staging
         volumeMounts:
         - name: storage-framework-cache
           mountPath: /var/www/html/storage/framework/cache
@@ -41,17 +43,17 @@ spec:
           mountPath: /var/www/html/storage/logs
 
       - name: seed-db
-        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app:1.0.25
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
         command:
           - sh
           - -c
           - |
-            php artisan db:seed --force || exit 0
+            php artisan db:seed --force
         envFrom:
         - configMapRef:
-            name: laravel-env
+            name: laravel-env-staging
         - secretRef:
-            name: laravel-app-key
+            name: laravel-secret-staging
         volumeMounts:
         - name: storage-framework-cache
           mountPath: /var/www/html/storage/framework/cache
@@ -65,18 +67,19 @@ spec:
           mountPath: /var/www/html/storage/logs
 
       imagePullSecrets:
-      - name: acr-secret
+      - name: secret-acr
       containers:
       - name: laravel
-        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app:1.0.25
+        image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+        imagePullPolicy: Always  # 新增：始终拉取最新镜像
         ports:
         - containerPort: 80
           name: nginx-http
         envFrom:
         - configMapRef:
-            name: laravel-env
+            name: laravel-env-staging
         - secretRef:
-            name: laravel-app-key
+            name: laravel-secret-staging
         volumeMounts:
         - name: storage-framework-cache
           mountPath: /var/www/html/storage/framework/cache

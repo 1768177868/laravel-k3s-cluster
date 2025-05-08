@@ -1,0 +1,141 @@
+kind: pipeline
+type: docker
+name: default
+
+steps:
+
+  # ================= Kustomize 调试打印模块 =================
+  - name: debug
+    image: alpine
+    commands:
+      - echo "构建触发事件：${DRONE_BUILD_EVENT}"
+      - echo "当前镜像标签为：${DRONE_TAG}"
+      - echo "分支名标签为：${DRONE_BRANCH}"
+      - echo "提交哈希标签为：${DRONE_COMMIT_SHA:0:7}"
+      - echo "构建编号为：${DRONE_BUILD_NUMBER}"
+      
+
+
+  # ================= Kustomize 代码克隆模块 =================
+  - name: checkout
+    image: alpine/git
+    commands:
+      - mkdir -p tmp_repo
+      - git clone https://gitee.com/wangxuancheng/laravel-k3s-cluster.git tmp_repo
+
+
+  # ================= Kustomize 配置更新模块 =================
+  - name: update-kustomize-master
+    image: alpine/git
+    commands:
+      - |  # 使用YAML字面量管道符保持多行命令格式
+        if [ "${DRONE_BRANCH}" = "master" ]; then
+          overlay_dir="prod"
+        elif [ "${DRONE_BRANCH}" = "dev" ]; then
+          overlay_dir="dev"
+        else
+          echo "Unsupported branch: ${DRONE_BRANCH}"
+          exit 1
+        fi
+        cd tmp_repo/manifests/overlays/$overlay_dir && \
+        sed -i "s/newTag: .*/newTag: ${DRONE_BRANCH}-${DRONE_BUILD_NUMBER}/" kustomization.yaml && \
+        cat kustomization.yaml
+
+
+
+  # ================= 镜像构建推送模块 =================
+  - name: build-and-push-tag
+    image: plugins/docker
+    settings:
+      registry: registry.cn-hangzhou.aliyuncs.com
+      repo: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+      username: 
+        from_secret: ALIYUN_AK
+      password: 
+        from_secret: ALIYUN_SK
+      context: ./tmp_repo
+      tags: 
+        - "prod-${DRONE_TAG}"
+      dockerfile: Dockerfile
+    when:
+      event: [tag]
+
+  - name: build-and-push-master
+    image: plugins/docker
+    settings:
+      registry: registry.cn-hangzhou.aliyuncs.com
+      repo: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+      username: 
+        from_secret: ALIYUN_AK
+      password: 
+        from_secret: ALIYUN_SK
+      context: ./tmp_repo
+      tags: 
+        - "master-${DRONE_BUILD_NUMBER}"
+      dockerfile: Dockerfile
+    when:
+      branch: master
+      event: [push]
+
+  - name: build-and-push-dev
+    image: plugins/docker
+    settings:
+      registry: registry.cn-hangzhou.aliyuncs.com
+      repo: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+      username: 
+        from_secret: ALIYUN_AK
+      password: 
+        from_secret: ALIYUN_SK
+      context: ./tmp_repo
+      tags: 
+        - "dev-${DRONE_BUILD_NUMBER}"
+      dockerfile: Dockerfile
+    when:
+      branch: dev
+      event: [push]
+
+
+  # ================= Kustomize 配置推送模块 =================
+  - name: push-kustomize-changes
+    image: alpine/git
+    environment:
+      GITEE_USER:
+        from_secret: GITEE_USER
+      GITEE_TOKEN:
+        from_secret: GITEE_TOKEN
+    commands:
+      - |  # 使用YAML字面量管道符保持多行命令格式
+        cd tmp_repo
+        git remote set-url origin https://$GITEE_USER:$GITEE_TOKEN@gitee.com/wangxuancheng/laravel-k3s-cluster.git
+        git add manifests/overlays/*/kustomization.yaml
+        git commit -m "chore: update image tag [drone: ${DRONE_BUILD_NUMBER}] [skip ci]"
+        git push origin ${DRONE_BRANCH}
+    when:
+      branch:
+        - master
+        - dev
+      event:  # 直接排除 pull_request
+        exclude:
+          - pull_request
+
+
+trigger:
+  branch:
+    - master
+    - dev
+    - /feature\/.*/
+  event:
+    - push
+    - tag
+
+resources:
+  limits:
+    memory: 2GB
+    cpus: 2
+
+# ============== 安全配置（通过Drone Secrets注入） ==============
+# 需在Drone控制台配置以下Secrets:
+# 1. ALIYUN_AK - 阿里云镜像仓库用户名
+# 2. ALIYUN_SK - 阿里云镜像仓库密码
+# 3. GITEE_USER - Gitee用户名
+# 4. GITEE_TOKEN - Gitee访问令牌

@@ -1,8 +1,12 @@
-apiVersion: batch/v1  # 修正拼写错误，使用正确的 API 版本
+apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: laravel-schedule  # CronJob 名称（需唯一）
-  namespace: laravel      # 与你的应用命名空间一致
+  name: laravel-schedule
+  namespace: laravel-staging
+  labels:
+    app.kubernetes.io/name: laravel-app
+    app.kubernetes.io/component: schedule  # 标识为调度组件
+    environment: staging
 spec:
   schedule: "*/1 * * * *"  # 每分钟执行一次（Cron 表达式正确）
   jobTemplate:
@@ -13,11 +17,13 @@ spec:
             - name: acr-secret  # 镜像拉取密钥（需提前创建）
           containers:
             - name: laravel-schedule
-              image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app:1.0.25
+              image: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
               command: ["php", "artisan", "schedule:run"]  # Laravel 定时任务命令
               envFrom:
                 - configMapRef:
-                    name: laravel-env  # 引用环境变量 ConfigMap（需提前创建）
+                    name: laravel-env-staging  # 引用环境变量 ConfigMap（需提前创建）
+                - secretRef:
+                    name: laravel-secret-staging    # 敏感变量从 Secret 注入
           restartPolicy: Never  # 任务完成后不重启容器
       backoffLimit: 4  # 失败重试次数（可选，默认 6 次）
   # 可选：如需设置时区（如北京时间），添加以下配置

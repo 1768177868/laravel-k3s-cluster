@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: laravel-prod
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://gitee.com/wangxuancheng/laravel-k3s-cluster.git
+    path: manifests/overlays/prod/  # kustomization.yaml 所在路径
+    # 移除标签监听，改为监听当前分支（Drone 会推送至对应分支）
+    targetRevision: ""  # 留空，Argo CD 会自动拉取代码仓库的最新提交
+    kustomize:
+      # 仅保留镜像名称匹配，版本号由代码仓库中的 kustomization.yaml 管理
+      images:
+      - name: registry.cn-hangzhou.aliyuncs.com/xuancheng/laravel-app
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: laravel-prod  # 与 kustomization.yaml 中定义的命名空间一致
+
+  syncPolicy:
+    automated:
+      prune: true            # 自动清理无效资源
+      selfHeal: true         # 自动修复资源漂移
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true  # 自动创建命名空间（若不存在）
+    - ApplyOutOfSyncOnly=true
